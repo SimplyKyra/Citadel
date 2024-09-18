@@ -144,6 +144,56 @@ final class SSHClientSession {
         }.get()
     }
     
+    public static func connect(
+        host: String,
+        port: Int = 22,
+        authenticationMethod: @escaping @autoclosure () -> SSHAuthenticationMethod,
+        hostKeyValidator: SSHHostKeyValidator,
+        algorithms: SSHAlgorithms = SSHAlgorithms(),
+        protocolOptions: Set<SSHProtocolOption> = [],
+        group: EventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1),
+        channelHandler: ChannelHandler & Sendable,
+        connectTimeout: TimeAmount = .seconds(30)
+    ) async throws -> SSHClientSession {
+        let handshakeHandler = ClientHandshakeHandler(
+            eventLoop: group.next(),
+            loginTimeout: .seconds(10)
+        )
+        var clientConfiguration = SSHClientConfiguration(
+            userAuthDelegate: authenticationMethod(),
+            serverAuthDelegate: hostKeyValidator
+        )
+        
+        algorithms.apply(to: &clientConfiguration)
+        
+        for option in protocolOptions {
+            option.apply(to: &clientConfiguration)
+        }
+        
+        let bootstrap = ClientBootstrap(group: group).channelInitializer { channel in
+            channel.pipeline.addHandlers([
+                NIOSSHHandler(
+                    role: .client(clientConfiguration),
+                    allocator: channel.allocator,
+                    inboundChildChannelInitializer: nil
+                ),
+                handshakeHandler,
+                channelHandler
+            ])
+        }
+        .connectTimeout(connectTimeout)
+        .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+        .channelOption(ChannelOptions.socket(SocketOptionLevel(IPPROTO_TCP), TCP_NODELAY), value: 1)
+        
+        return try await bootstrap.connect(host: host, port: port).flatMap { channel in
+            return handshakeHandler.authenticated.flatMap {
+                channel.pipeline.handler(type: NIOSSHHandler.self)
+            }.map { sshHandler in
+                SSHClientSession(channel: channel, sshHandler: sshHandler)
+            }
+        }.get()
+    }
+    
     public static func getChannelConnection(
 //        host: String,
 //        port: Int = 22,

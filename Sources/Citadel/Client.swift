@@ -232,9 +232,51 @@ public final class SSHClient {
         return client
     }
     
-    public static func getChannelConnection(
+    public static func connect(
         host: String,
         port: Int = 22,
+        authenticationMethod: SSHAuthenticationMethod,
+        hostKeyValidator: SSHHostKeyValidator,
+        reconnect: SSHReconnectMode,
+        algorithms: SSHAlgorithms = SSHAlgorithms(),
+        protocolOptions: Set<SSHProtocolOption> = [],
+        group: MultiThreadedEventLoopGroup = .init(numberOfThreads: 1),
+        channelHandler: ChannelHandler & Sendable,
+        connectTimeout:TimeAmount = .seconds(30)
+    ) async throws -> SSHClient {
+        let session = try await SSHClientSession.connect(
+            host: host,
+            port: port,
+            authenticationMethod: authenticationMethod,
+            hostKeyValidator: hostKeyValidator,
+            algorithms: algorithms,
+            protocolOptions: protocolOptions,
+            group: group,
+            channelHandler: channelHandler,
+            connectTimeout: connectTimeout
+        )
+        
+        let client = SSHClient(
+            session: session,
+            authenticationMethod: authenticationMethod,
+            hostKeyValidator: hostKeyValidator,
+            algorithms: algorithms,
+            protocolOptions: protocolOptions
+        )
+        
+        switch reconnect.mode {
+        case .always:
+            client.connectionSettings.reconnect = .always(to: host, port: port)
+        case .once:
+            client.connectionSettings.reconnect = .once(to: host, port: port)
+        case .never:
+            client.connectionSettings.reconnect = .never
+        }
+        
+        return client
+    }
+    
+    public static func getChannelConnection(
         authenticationMethod: SSHAuthenticationMethod,
         hostKeyValidator: SSHHostKeyValidator,
         reconnect: SSHReconnectMode,
