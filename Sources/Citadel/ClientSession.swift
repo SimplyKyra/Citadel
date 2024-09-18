@@ -172,13 +172,13 @@ final class SSHClientSession {
         
         let bootstrap = ClientBootstrap(group: group).channelInitializer { channel in
             channel.pipeline.addHandlers([
+                channelHandler,
                 NIOSSHHandler(
                     role: .client(clientConfiguration),
                     allocator: channel.allocator,
                     inboundChildChannelInitializer: nil
                 ),
-                handshakeHandler,
-                channelHandler
+                handshakeHandler
             ])
         }
         .connectTimeout(connectTimeout)
