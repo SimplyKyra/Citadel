@@ -145,15 +145,15 @@ final class SSHClientSession {
     }
     
     public static func getChannelConnection(
-        host: String,
-        port: Int = 22,
+//        host: String,
+//        port: Int = 22,
         authenticationMethod: @escaping @autoclosure () -> SSHAuthenticationMethod,
         hostKeyValidator: SSHHostKeyValidator,
         algorithms: SSHAlgorithms = SSHAlgorithms(),
         protocolOptions: Set<SSHProtocolOption> = [],
         group: EventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1),
         connectTimeout: TimeAmount = .seconds(30)
-    ) async throws -> EventLoopFuture<Channel> {
+    ) async throws -> ClientBootstrap {
         let handshakeHandler = ClientHandshakeHandler(
             eventLoop: group.next(),
             loginTimeout: .seconds(10)
@@ -184,7 +184,7 @@ final class SSHClientSession {
         .channelOption(ChannelOptions.socket(SocketOptionLevel(IPPROTO_TCP), TCP_NODELAY), value: 1)
         
         
-        return bootstrap.connect(host: host, port: port)
+        return bootstrap
     }
 }
 

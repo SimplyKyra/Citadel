@@ -242,10 +242,10 @@ public final class SSHClient {
         protocolOptions: Set<SSHProtocolOption> = [],
         group: MultiThreadedEventLoopGroup = .init(numberOfThreads: 1),
         connectTimeout:TimeAmount = .seconds(30)
-    ) async throws -> EventLoopFuture<Channel> {
+    ) async throws -> ClientBootstrap {
         return try await SSHClientSession.getChannelConnection(
-            host: host,
-            port: port,
+//            host: host,
+//            port: port,
             authenticationMethod: authenticationMethod,
             hostKeyValidator: hostKeyValidator,
             algorithms: algorithms,
