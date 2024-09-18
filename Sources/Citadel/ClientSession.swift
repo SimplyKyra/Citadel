@@ -143,6 +143,49 @@ final class SSHClientSession {
             }
         }.get()
     }
+    
+    public static func getChannelConnection(
+        host: String,
+        port: Int = 22,
+        authenticationMethod: @escaping @autoclosure () -> SSHAuthenticationMethod,
+        hostKeyValidator: SSHHostKeyValidator,
+        algorithms: SSHAlgorithms = SSHAlgorithms(),
+        protocolOptions: Set<SSHProtocolOption> = [],
+        group: EventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1),
+        connectTimeout: TimeAmount = .seconds(30)
+    ) async throws -> EventLoopFuture<Channel> {
+        let handshakeHandler = ClientHandshakeHandler(
+            eventLoop: group.next(),
+            loginTimeout: .seconds(10)
+        )
+        var clientConfiguration = SSHClientConfiguration(
+            userAuthDelegate: authenticationMethod(),
+            serverAuthDelegate: hostKeyValidator
+        )
+        
+        algorithms.apply(to: &clientConfiguration)
+        
+        for option in protocolOptions {
+            option.apply(to: &clientConfiguration)
+        }
+        
+        let bootstrap = ClientBootstrap(group: group).channelInitializer { channel in
+            channel.pipeline.addHandlers([
+                NIOSSHHandler(
+                    role: .client(clientConfiguration),
+                    allocator: channel.allocator,
+                    inboundChildChannelInitializer: nil
+                ),
+                handshakeHandler
+            ])
+        }
+        .connectTimeout(connectTimeout)
+        .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+        .channelOption(ChannelOptions.socket(SocketOptionLevel(IPPROTO_TCP), TCP_NODELAY), value: 1)
+        
+        
+        return bootstrap.connect(host: host, port: port)
+    }
 }
 
 public struct InvalidHostKey: Error, Equatable {}

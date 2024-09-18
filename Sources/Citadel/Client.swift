@@ -232,6 +232,30 @@ public final class SSHClient {
         return client
     }
     
+    public static func getChannelConnection(
+        host: String,
+        port: Int = 22,
+        authenticationMethod: SSHAuthenticationMethod,
+        hostKeyValidator: SSHHostKeyValidator,
+        reconnect: SSHReconnectMode,
+        algorithms: SSHAlgorithms = SSHAlgorithms(),
+        protocolOptions: Set<SSHProtocolOption> = [],
+        group: MultiThreadedEventLoopGroup = .init(numberOfThreads: 1),
+        connectTimeout:TimeAmount = .seconds(30)
+    ) async throws -> EventLoopFuture<Channel> {
+        return try await SSHClientSession.getChannelConnection(
+            host: host,
+            port: port,
+            authenticationMethod: authenticationMethod,
+            hostKeyValidator: hostKeyValidator,
+            algorithms: algorithms,
+            protocolOptions: protocolOptions,
+            group: group,
+            connectTimeout: connectTimeout
+        )
+    }
+    
+    
     private func onNewSession(_ session: SSHClientSession) {
         session.channel.closeFuture.whenComplete { [weak self] _ in
             self?.onClose()
