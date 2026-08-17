@@ -183,7 +183,12 @@ final class SSHClientSession: Sendable {
         }
         
         do {
-            try channel.pipeline.syncOperations.addHandlers(
+            // `settings.channelHandlers` must go FIRST so callers can inspect or rewrite inbound
+            // bytes before NIOSSH parses them. Some devices (reMarkable Paper Pro and Paper Pro
+            // Move in developer mode) emit a line of text ahead of the SSH version banner, which
+            // NIOSSH rejects; a prehandler strips it. Without this the handlers are accepted and
+            // silently ignored, so those connections fail with NIOSSHError.
+            let sshHandlers: [ChannelHandler] = [
                 NIOSSHHandler(
                     role: .client(clientConfiguration),
                     allocator: channel.allocator,
@@ -192,6 +197,9 @@ final class SSHClientSession: Sendable {
                     }
                 ),
                 handshakeHandler
+            ]
+            try channel.pipeline.syncOperations.addHandlers(
+                (settings.channelHandlers as [ChannelHandler]) + sshHandlers
             )
             return channel.eventLoop.makeSucceededVoidFuture()
         } catch {
